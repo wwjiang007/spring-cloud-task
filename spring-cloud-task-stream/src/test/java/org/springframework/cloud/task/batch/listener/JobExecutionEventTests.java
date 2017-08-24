@@ -35,7 +35,8 @@ import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.item.ExecutionContext;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.PropertyPlaceholderAutoConfiguration;
+
+import org.springframework.boot.autoconfigure.context.PropertyPlaceholderAutoConfiguration;
 import org.springframework.cloud.stream.test.binder.TestSupportBinderAutoConfiguration;
 import org.springframework.cloud.task.batch.listener.support.JobExecutionEvent;
 import org.springframework.cloud.task.batch.listener.support.JobInstanceEvent;
@@ -43,6 +44,7 @@ import org.springframework.cloud.task.batch.listener.support.StepExecutionEvent;
 import org.springframework.cloud.task.configuration.EnableTask;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -51,6 +53,7 @@ import static org.junit.Assert.assertTrue;
 
 /**
  * @author Glenn Renfro.
+ * @author Ali Shahbour
  */
 public class JobExecutionEventTests {
 
@@ -270,11 +273,34 @@ public class JobExecutionEventTests {
 		assertEquals(BatchStatus.FAILED, jobExecutionEvent.getStatus());
 	}
 
+	@Test
+	public void testOrderConfiguration() {
+		ConfigurableApplicationContext applicationContext =
+				SpringApplication.run(new Class[]{BatchEventAutoConfiguration.JobExecutionListenerConfiguration.class,
+								EventJobExecutionConfiguration.class,
+								PropertyPlaceholderAutoConfiguration.class,
+								TestSupportBinderAutoConfiguration.class},
+						new String[]{"--spring.cloud.task.closecontext_enable=false",
+								"--spring.main.web-environment=false",
+								"--spring.cloud.task.batch.events.chunk-order=5",
+								"--spring.cloud.task.batch.events.item-process-order=5",
+								"--spring.cloud.task.batch.events.item-read-order=5",
+								"--spring.cloud.task.batch.events.item-write-order=5",
+								"--spring.cloud.task.batch.events.job-execution-order=5",
+								"--spring.cloud.task.batch.events.skip-order=5",
+								"--spring.cloud.task.batch.events.step-execution-order=5"
+				});
+		for (String beanName : LISTENER_BEAN_NAMES) {
+			Ordered ordered = (Ordered)applicationContext.getBean(beanName);
+			assertEquals("Expected order value of 5 for " + beanName,ordered.getOrder(),5);
+		}
+	}
+
 	public void testDisabledConfiguration(String property, String disabledListener) {
 		boolean exceptionThrown = false;
 		String disabledPropertyArg = (property != null) ? "--" + property + "=false" : "";
 		ConfigurableApplicationContext applicationContext =
-				SpringApplication.run(new Object[]{BatchEventAutoConfiguration.JobExecutionListenerConfiguration.class,
+				SpringApplication.run(new Class[]{BatchEventAutoConfiguration.JobExecutionListenerConfiguration.class,
 								EventJobExecutionConfiguration.class,
 								PropertyPlaceholderAutoConfiguration.class,
 								TestSupportBinderAutoConfiguration.class},
